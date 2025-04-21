@@ -32,7 +32,7 @@ int main() {
         while (next_frame < base + WINDOW_SIZE && next_frame < MAX_FRAMES) {
             sprintf(buffer, "Frame %d", next_frame);
             send(sockfd, buffer, strlen(buffer) + 1, 0);
-            printf("📤 Sent: %s\n", buffer);
+            printf("Sent: %s\n", buffer);
             next_frame++;
         }
 
