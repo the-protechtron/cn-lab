@@ -1,58 +1,50 @@
-#include<stdio.h>
-#include<unistd.h>
-#include<arpa/inet.h>
-#include<string.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <arpa/inet.h>
 
-int main(){
-	char buffer[1024];
-	int nf=0,base=0,win=4,ea=0,ra,fc=10,err,server;
-	struct sockaddr_in addr;
-	
-	server = socket(AF_INET,SOCK_STREAM,0);
-	addr.sin_family = AF_INET;
-	addr.sin_port = htons(8080);
-	addr.sin_addr.s_addr = INADDR_ANY;
-	
-	while(connect(server,(struct sockaddr*)&addr,sizeof(addr)));
-	
-	
-	printf("Connected to server\n\n");
-	
-	while(base<fc){
-		while(nf<base+win && nf<fc){
-			printf("Induce error in frame %d? (1||0): ",nf);
-			scanf("%d",&err);
-			if(err){
-				printf("Sent frame %d with error\n",nf);
-				
-			}
-			else{
-				sprintf(buffer,"Frame %d",nf);
-				send(server,buffer,sizeof(buffer),0);
-				printf("Sent frame %d\n",nf);
-			}
-			
-			nf++;
-		}
-		
-		recv(server,&ra,sizeof(ra),0);
-		//printf("Received ack was %d\n",ra);
-		if(ra==ea){
-			printf("Received ack for frame %d\n",ra);
-			ea++;
-			ra=0;
-		}
-		else{
-			printf("ack for frame %d TIMEOUT!\n",ea);
-			nf=ea;
-			ra=0;
-		}
-		if(ea>base){
-			base=ea-1;
-		}
-		if(base==9){send(server,"exit",sizeof("exit"),0);break;}
-	
-	}
-		close(server);	
-return 0;
+#define MAX_FRAMES 10
+#define WINDOW_SIZE 4
+#define PORT 8080
+
+int main() {
+    int sockfd;
+    struct sockaddr_in server_addr;
+    char buffer[1024];
+    int base = 0, next_frame = 0, ack;
+
+    sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (sockfd < 0) {
+        perror("Socket creation failed");
+        exit(EXIT_FAILURE);
+    }
+
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(PORT);
+    server_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+
+    while (connect(sockfd, (struct sockaddr*)&server_addr, sizeof(server_addr)) != 0);
+
+    printf("Connected to server!\n");
+
+    while (base < MAX_FRAMES) {
+        while (next_frame < base + WINDOW_SIZE && next_frame < MAX_FRAMES) {
+            sprintf(buffer, "Frame %d", next_frame);
+            send(sockfd, buffer, strlen(buffer) + 1, 0);
+            printf("📤 Sent: %s\n", buffer);
+            next_frame++;
+        }
+
+        recv(sockfd, &ack, sizeof(ack), 0);
+        printf("Received ACK for Frame %d\n", ack);
+        base = ack + 1;
+    }
+
+    // Send exit to stop server loop
+    send(sockfd, "exit", strlen("exit") + 1, 0);
+
+    close(sockfd);
+    printf("All frames sent successfully!\n");
+    return 0;
 }

@@ -1,65 +1,51 @@
-#include<stdio.h>
-#include<unistd.h>
-#include<arpa/inet.h>
-#include<string.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <arpa/inet.h>
 
-int main(){
-	char buffer[1024];
-	int ef=0,cf,lf,server,client,win=4,flag=0,count=0;
-	struct sockaddr_in addr;
-	
-	server = socket(AF_INET,SOCK_STREAM,0);
-	addr.sin_family = AF_INET;
-	addr.sin_port = htons(8080);
-	addr.sin_addr.s_addr = INADDR_ANY;
-	
-	bind(server,(struct sockaddr*)&addr,sizeof(addr));
-	listen(server,5);
-	client=accept(server,NULL,NULL);
-	
-	printf("Connected to client\n");
-	
-	while(1){
-		if(count==win){
-			count=0;
-			flag=0;
-		}
-		
-		memset(buffer,0,sizeof(buffer));
-	
-		recv(client,buffer,sizeof(buffer),0);
-		count++;
-	
-		if(strcmp(buffer,"exit")==0){
-			printf("Closing connection\n");
-			break;
-		}
-		
-		sscanf(buffer,"Frame %d",&cf);
-		if(cf==ef){
-			printf("Frame %d received\n",cf);
-			lf=cf;
-			ef++;
-			flag=0;
-			
-		}
-		else{
-			printf("Received an out of order frame %d, Discarding frame...\n",cf);
-			if(flag==0){
-			send(client,&lf,sizeof(lf),0);
-			//printf("ack sent for frame %d\n",lf);
-			flag=1;}
+#define PORT 8080
+#define BUFFER_SIZE 1024
 
-		}
-		
-		if(flag==0){
-		send(client,&lf,sizeof(lf),0);
-		//printf("ack sent for frame %d\n",lf);
-		}
-		
-	}
-	close(client);
-	close(server);
-	
-return 0;
+int main() {
+    int server_fd, new_socket;
+    struct sockaddr_in address;
+    char buffer[BUFFER_SIZE];
+    int addrlen = sizeof(address);
+    int frame_num;
+
+    server_fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (server_fd < 0) {
+        perror("Socket creation failed");
+        exit(EXIT_FAILURE);
+    }
+
+    address.sin_family = AF_INET;
+    address.sin_addr.s_addr = INADDR_ANY;
+    address.sin_port = htons(PORT);
+
+    bind(server_fd, (struct sockaddr*)&address, sizeof(address));
+    listen(server_fd, 5);
+
+    printf("Server is waiting for connection...\n");
+    new_socket = accept(server_fd, (struct sockaddr*)&address, (socklen_t*)&addrlen);
+    printf("Client connected!\n");
+
+    while (1) {
+        memset(buffer, 0, sizeof(buffer));
+        recv(new_socket, buffer, sizeof(buffer), 0);
+
+        if (strcmp(buffer, "exit") == 0) break;
+
+        sscanf(buffer, "Frame %d", &frame_num);
+        printf("Received: %s\n", buffer);
+
+        // Send ACK
+        send(new_socket, &frame_num, sizeof(frame_num), 0);
+    }
+
+    close(new_socket);
+    close(server_fd);
+    printf("Connection closed.\n");
+    return 0;
 }
